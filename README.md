@@ -98,7 +98,7 @@ ansible-vault edit inventory/group_vars/vault.yml
 # Run with vault password
 ansible-playbook playbooks/deploy.yml --ask-vault-pass
 
-Customization
+#  Customization
 This framework can be customized for your environment:
 
 Java Packages: Update java_packages in roles/java-compiler/defaults/main.yml
@@ -107,7 +107,7 @@ WebSphere Settings: Adjust WebSphere configuration variables
 Health Checks: Add custom application health validation
 Notifications: Implement deployment notifications
 
-Troubleshooting
+#  Troubleshooting
 Common Issues
 Compilation Errors:
 
@@ -115,34 +115,19 @@ Check Java version and classpath
 Verify source code encoding
 Ensure proper file permissions
 
-WebSphere Connection Issues:
+# WebSphere Connection Issues:
 
 Verify wsadmin path and credentials
 Check WebSphere server status
 Validate network connectivity
 
-Deployment Failures:
+# Deployment Failures:
 
 Check application logs
 Verify WAR file integrity
 Review WebSphere deployment logs
 
-Debug Mode
+# Debug Mode
 ansible-playbook playbooks/deploy.yml -vvv
 
-Contributing
 
-Fork the repository
-Create a feature branch
-Make your changes
-Test thoroughly
-Submit a pull request
-
-License
-MIT License - see LICENSE file for details
-Support
-For issues and questions:
-
-Create an issue in GitHub
-Check the troubleshooting section
-Review Ansible and WebSphere documentation
