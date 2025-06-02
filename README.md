@@ -11,19 +11,19 @@ Ansible automation for WebSphere application deployment with Java compilation, b
 - **Rollback Support**: Quick rollback to previous versions
 - **Error Handling**: Comprehensive error checking and validation
 
-## Project Structure
+  ## Project Structure 
 websphere-deployment/
 ├── playbooks/
-│   ├── deploy.yml          # Main deployment playbook
-│   └── rollback.yml        # Rollback playbook
+│   ├── deploy.yml
+│   └── rollback.yml
 ├── roles/
-│   ├── java-compiler/      # Java compilation tasks
-│   ├── websphere-deploy/   # WebSphere deployment tasks
-│   └── backup-manager/     # Backup and rollback tasks
+│   ├── java-compiler/
+│   ├── websphere-deploy/
+│   └── backup-manager/
 ├── inventory/
-│   ├── hosts              # Server inventory
-│   └── group_vars/all.yml # Global variables
-└── vars/deployment.yml    # Deployment configuration
+│   ├── hosts
+│   └── group_vars/all.yml
+└── vars/deployment.yml
 
 ## Prerequisites
 
