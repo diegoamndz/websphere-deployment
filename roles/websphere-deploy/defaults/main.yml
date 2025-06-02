@@ -1,0 +1,7 @@
+# WebSphere deployment defaults
+war_file_name: "{{ app_name }}.war"
+backup_war_pattern: "{{ app_name }}.war_bkp_*"
+trace_file: "/tmp/wsadmin_{{ app_name }}_trace.log"
+web_content_path: "{{ source_base_dir }}/{{ app_name }}/WebContent"
+temp_war_path: "{{ temp_dir }}/{{ war_file_name }}"
+final_war_path: "{{ war_staging_dir }}/{{ war_file_name }}"

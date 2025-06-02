@@ -1,0 +1,43 @@
+---
+- name: WebSphere Application Deployment
+  hosts: websphere_servers
+  gather_facts: false
+  vars_files:
+    - ../vars/deployment.yml
+
+
+  pre_tasks:
+    - name: Validate deployment variables
+      assert:
+        that:
+          - app_name is defined
+          - source_base_dir is defined
+          - was_username is defined
+        fail_msg: "Required deployment variables are missing"
+
+  roles:
+    - role: java-compiler
+      tags: ['compile', 'build']
+
+    - role: websphere-deploy
+      tags: ['deploy', 'websphere']
+
+  post_tasks:
+    - name: Verify application is running
+      uri:
+        url: "http://{{ ansible_host }}:{{ application_port | default(9080) }}{{ context_root }}/health"
+        method: GET
+        status_code: 200
+      register: health_check
+      ignore_errors: true
+      tags: ['verify']
+
+    - name: Display deployment summary
+      debug:
+        msg: |
+          Deployment Summary:
+          - Application: {{ app_name }}
+          - Status: {{ 'SUCCESS' if health_check.status == 200 else 'DEPLOYED (Health check failed)' }}
+          - Context Root: {{ context_root }}
+          - Backup Created: {{ backup_timestamp | default('N/A') }}
+      tags: ['summary']

@@ -1,0 +1,10 @@
+# Java compiler defaults
+java_packages:
+  - com/your_company/entities
+  - com/your_company/jobs
+  - com/your_company/services
+  - com/your_company/utils
+
+compile_encoding: "{{ java_encoding | default('UTF-8') }}"
+compile_output_dir: "{{ source_base_dir }}/{{ app_name }}/WebContent/WEB-INF/classes"
+compile_source_dir: "{{ source_base_dir }}/{{ app_name }}/src"

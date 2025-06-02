@@ -1,0 +1,9 @@
+[websphere_servers]
+your_websphere_server ansible_host=your_server_ip
+
+[build_servers]
+your_build_server ansible_host=your_build_ip
+
+[all:vars]
+ansible_ssh_user=deploy_user
+ansible_become=yes

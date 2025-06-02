@@ -1,0 +1,128 @@
+---
+- name: Create temporary directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ deployment_user }}"
+  with_items:
+    - "{{ temp_dir }}"
+    - "{{ war_staging_dir }}"
+    - "{{ backup_dir }}"
+  delegate_to: "{{ groups['build_servers'][0] }}"
+
+- name: Create WAR file from WebContent
+  shell: |
+    cd {{ web_content_path }} && \
+    jar -cvf {{ temp_war_path }} *
+  register: war_creation_result
+  delegate_to: "{{ groups['build_servers'][0] }}"
+  failed_when: war_creation_result.rc != 0
+
+- name: Verify WAR file creation
+  stat:
+    path: "{{ temp_war_path }}"
+  register: temp_war_check
+  delegate_to: "{{ groups['build_servers'][0] }}"
+
+- name: Export current application as backup
+  shell: >
+    sudo -u {{ websphere_user }} {{ wasadmin_path }} -lang jython -conntype NONE
+    -c "AdminApp.export('{{ app_name }}', '{{ backup_dir }}/{{ war_file_name }}')"
+  register: export_result
+  ignore_errors: true
+
+- name: Generate timestamp for backup
+  set_fact:
+    backup_timestamp: "{{ '%Y%m%d_%H%M%S' | strftime }}"
+
+- name: Create timestamped backup
+  shell: |
+    cp {{ backup_dir }}/{{ war_file_name }} {{ backup_dir }}/{{ app_name }}.war_bkp_{{ backup_timestamp }}
+    chmod 644 {{ backup_dir }}/{{ app_name }}.war_bkp_{{ backup_timestamp }}
+  when: export_result.rc == 0
+  ignore_errors: true
+
+- name: Remove temporary export file
+  file:
+    path: "{{ backup_dir }}/{{ war_file_name }}"
+    state: absent
+  ignore_errors: true
+
+- name: Transfer WAR file to WebSphere server
+  copy:
+    src: "{{ temp_war_path }}"
+    dest: "{{ final_war_path }}"
+    owner: "{{ websphere_user }}"
+    mode: '0644'
+  when: temp_war_check.stat.exists
+
+- name: Verify WebSphere connectivity
+  command: >
+    sudo -u {{ websphere_user }} {{ wasadmin_path }} -lang jython
+    -username {{ was_username }}
+    -password {{ was_password }}
+    -port {{ was_port }}
+    -tracefile {{ trace_file }}
+    -c "print 'WebSphere connection test successful'"
+  register: was_connectivity
+  changed_when: false
+
+- name: Stop WebSphere application
+  command: >
+    sudo -u {{ websphere_user }} {{ wasadmin_path }} -lang jython
+    -username {{ was_username }}
+    -password {{ was_password }}
+    -port {{ was_port }}
+    -tracefile {{ trace_file }}
+    -c "appManager = AdminControl.queryNames('cell={{ was_cell }},node={{ was_node }},type=ApplicationManager,*');
+    AdminControl.invoke(appManager, 'stopApplication', '{{ app_name }}')"
+  register: stop_result
+
+- name: Update application with new WAR
+  command: >
+    sudo -u {{ websphere_user }} {{ wasadmin_path }} -lang jython
+    -username {{ was_username }}
+    -password {{ was_password }}
+    -port {{ was_port }}
+    -tracefile {{ trace_file }}
+    -c "AdminApp.update('{{ app_name }}', 'app',
+    '-operation update -contents {{ final_war_path }} -contextroot {{ context_root }} -usedefaultbindings')"
+  register: update_result
+  failed_when: "'ADMA5013I' not in update_result.stdout"
+
+- name: Start WebSphere application
+  command: >
+    sudo -u {{ websphere_user }} {{ wasadmin_path }} -lang jython
+    -username {{ was_username }}
+    -password {{ was_password }}
+    -port {{ was_port }}
+    -tracefile {{ trace_file }}
+    -c "appManager = AdminControl.queryNames('cell={{ was_cell }},node={{ was_node }},type=ApplicationManager,*');
+    AdminControl.invoke(appManager, 'startApplication', '{{ app_name }}')"
+  register: start_result
+
+- name: Verify application deployment status
+  command: >
+    sudo -u {{ websphere_user }} {{ wasadmin_path }} -lang jython
+    -username {{ was_username }}
+    -password {{ was_password }}
+    -port {{ was_port }}
+    -tracefile {{ trace_file }}
+    -c "print AdminControl.completeObjectName('type=Application,name={{ app_name }},*')"
+  register: verify_status
+  changed_when: false
+
+- name: Display deployment status
+  debug:
+    msg: "Application {{ app_name }} deployed successfully"
+  when: verify_status.stdout != ""
+
+- name: Clean up temporary files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ temp_war_path }}"
+    - "{{ trace_file }}"
+  delegate_to: "{{ groups['build_servers'][0] }}"

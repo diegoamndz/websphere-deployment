@@ -1,0 +1,17 @@
+---
+# Application specific variables
+# Override these in your environment
+
+# Source code repository (example for git integration)
+git_repository: "https://github.com/your-org/your-application.git"
+git_branch: main
+git_checkout_dir: "{{ source_base_dir }}/{{ app_name }}"
+
+# Application health check
+application_port: 9080
+health_check_path: "{{ context_root }}/health"
+
+# Deployment options
+confirm_rollback: true
+skip_compilation: false
+force_restart: false

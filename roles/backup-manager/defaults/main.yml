@@ -1,0 +1,4 @@
+# Backup management defaults
+temp_repack_dir: "/tmp/repack_war"
+rollback_war_name: "{{ app_name }}_rollback.war"
+max_backups_retain: 10

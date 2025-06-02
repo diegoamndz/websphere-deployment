@@ -1,0 +1,26 @@
+# WebSphere Configuration
+was_username: "{{ vault_was_username }}"
+was_password: "{{ vault_was_password }}"
+was_port: 8879
+was_cell: your_cell_name
+was_node: your_node_name
+wasadmin_path: /opt/websphere/bin/wsadmin.sh
+
+# Application Configuration
+app_name: your_application_name
+context_root: /your_app
+
+# Paths
+source_base_dir: /opt/source
+backup_dir: /opt/backups/applications
+temp_dir: /tmp/deployment
+war_staging_dir: /opt/staging
+
+# Java Configuration
+java_home: /opt/java/jdk1.8
+java_encoding: UTF-8
+classpath_libs: "{{ source_base_dir }}/{{ app_name }}/WebContent/WEB-INF/lib/*"
+
+# Deployment user
+deployment_user: deploy_user
+websphere_user: was_adminß

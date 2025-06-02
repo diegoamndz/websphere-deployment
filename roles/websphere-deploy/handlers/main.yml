@@ -1,0 +1,9 @@
+---
+- name: Restart WebSphere
+  command: >
+    sudo -u {{ websphere_user }} {{ wasadmin_path }} -lang jython
+    -username {{ was_username }}
+    -password {{ was_password }}
+    -port {{ was_port }}
+    -c "AdminControl.invoke(AdminControl.queryNames('type=Server,*'), 'restart')"
+  listen: "restart websphere server"

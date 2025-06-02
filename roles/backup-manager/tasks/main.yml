@@ -1,0 +1,88 @@
+---
+- name: Find available backup files
+  find:
+    paths: "{{ backup_dir }}"
+    patterns: "{{ backup_war_pattern }}"
+  register: available_backups
+  ignore_errors: true
+
+- name: Fail if no backups found
+  fail:
+    msg: "No backup files found for rollback"
+  when: available_backups.files | length == 0
+
+- name: Identify latest backup file
+  set_fact:
+    latest_backup_file: "{{ (available_backups.files | sort(attribute='mtime', reverse=True) | map(attribute='path') | list)[0] }}"
+  when: available_backups.files | length > 0
+
+- name: Display selected backup
+  debug:
+    msg: "Rolling back to: {{ latest_backup_file }}"
+
+- name: Create temporary repack directory
+  file:
+    path: "{{ temp_repack_dir }}"
+    state: directory
+    mode: '0755'
+  when: available_backups.files | length > 0
+
+- name: Extract and repackage backup WAR
+  shell: |
+    cd {{ temp_repack_dir }}
+    rm -rf *
+    unzip "{{ latest_backup_file }}"
+    jar -cvf "{{ war_staging_dir }}/{{ rollback_war_name }}" *
+  when: available_backups.files | length > 0
+  register: repack_result
+
+- name: Stop application for rollback
+  command: >
+    sudo -u {{ websphere_user }} {{ wasadmin_path }} -lang jython
+    -username {{ was_username }}
+    -password {{ was_password }}
+    -port {{ was_port }}
+    -tracefile {{ trace_file }}
+    -c "appManager = AdminControl.queryNames('cell={{ was_cell }},node={{ was_node }},type=ApplicationManager,*');
+    AdminControl.invoke(appManager, 'stopApplication', '{{ app_name }}')"
+  when: available_backups.files | length > 0
+
+- name: Update application with backup WAR
+  command: >
+    sudo -u {{ websphere_user }} {{ wasadmin_path }} -lang jython
+    -username {{ was_username }}
+    -password {{ was_password }}
+    -port {{ was_port }}
+    -tracefile {{ trace_file }}
+    -c "AdminApp.update('{{ app_name }}', 'app',
+    '-operation update -contents {{ war_staging_dir }}/{{ rollback_war_name }} -contextroot {{ context_root }} -usedefaultbindings')"
+  register: rollback_update
+  failed_when: "'ADMA5013I' not in rollback_update.stdout"
+  when: available_backups.files | length > 0
+
+- name: Start application after rollback
+  command: >
+    sudo -u {{ websphere_user }} {{ wasadmin_path }} -lang jython
+    -username {{ was_username }}
+    -password {{ was_password }}
+    -port {{ was_port }}
+    -tracefile {{ trace_file }}
+    -c "appManager = AdminControl.queryNames('cell={{ was_cell }},node={{ was_node }},type=ApplicationManager,*');
+    AdminControl.invoke(appManager, 'startApplication', '{{ app_name }}')"
+  when: available_backups.files | length > 0
+
+- name: Clean up temporary rollback files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ temp_repack_dir }}"
+    - "{{ war_staging_dir }}/{{ rollback_war_name }}"
+  when: available_backups.files | length > 0
+
+- name: Clean old backup files
+  shell: |
+    cd {{ backup_dir }}
+    ls -t {{ backup_war_pattern }} | tail -n +{{ max_backups_retain + 1 }} | xargs -r rm
+  ignore_errors: true
+  when: available_backups.files | length > max_backups_retain

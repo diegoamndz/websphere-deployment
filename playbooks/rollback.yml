@@ -1,0 +1,43 @@
+---
+- name: WebSphere Application Rollback
+  hosts: websphere_servers
+  gather_facts: true
+  vars_files:
+    - ../vars/deployment.yml
+
+  pre_tasks:
+    - name: Confirm rollback operation
+      pause:
+        prompt: "Are you sure you want to rollback {{ app_name }}? (yes/no)"
+      register: rollback_confirmation
+      when: confirm_rollback | default(true) | bool
+
+    - name: Abort rollback if not confirmed
+      fail:
+        msg: "Rollback operation cancelled by user"
+      when:
+        - confirm_rollback | default(true) | bool
+        - rollback_confirmation.user_input | lower != 'yes'
+
+  roles:
+    - role: backup-manager
+      tags: ['rollback', 'restore']
+
+  post_tasks:
+    - name: Verify rollback success
+      uri:
+        url: "http://{{ ansible_host }}:{{ application_port | default(9080) }}{{ context_root }}/health"
+        method: GET
+        status_code: 200
+      register: rollback_health_check
+      ignore_errors: true
+      tags: ['verify']
+
+    - name: Display rollback summary
+      debug:
+        msg: |
+          Rollback Summary:
+          - Application: {{ app_name }}
+          - Status: {{ 'SUCCESS' if rollback_health_check.status == 200 else 'COMPLETED (Health check failed)' }}
+          - Restored from: {{ latest_backup_file | basename }}
+      tags: ['summary']

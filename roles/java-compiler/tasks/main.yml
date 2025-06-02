@@ -1,0 +1,60 @@
+---
+- name: Ensure source directory permissions
+  file:
+    path: "{{ source_base_dir }}/{{ app_name }}"
+    state: directory
+    recurse: true
+    mode: '0755'
+    owner: "{{ deployment_user }}"
+  delegate_to: "{{ groups['build_servers'][0] }}"
+
+- name: Clean previous compilation artifacts
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ compile_output_dir }}/com"
+    - "{{ compile_output_dir }}/META-INF"
+  delegate_to: "{{ groups['build_servers'][0] }}"
+
+- name: Compile Java source code
+  shell: |
+    cd {{ compile_source_dir }} && \
+    {{ java_home }}/bin/javac -encoding {{ compile_encoding }} \
+    -proc:none \
+    -classpath {{ classpath_libs }}:. \
+    -d {{ compile_output_dir }} \
+    {% for package in java_packages %}
+    {{ package }}/*.java{% if not loop.last %} \{% endif %}
+    {% endfor %}
+  args:
+    chdir: "{{ compile_source_dir }}"
+  register: compile_result
+  delegate_to: "{{ groups['build_servers'][0] }}"
+  failed_when: compile_result.rc != 0
+
+- name: Verify compilation success
+  shell: |
+    echo "Checking compiled classes:"
+    {% for package in java_packages %}
+    echo "{{ package }}:" && ls -l {{ compile_output_dir }}/{{ package }}/*.class
+    {% endfor %}
+  args:
+    chdir: "{{ compile_source_dir }}"
+  register: verify_result
+  delegate_to: "{{ groups['build_servers'][0] }}"
+  when: compile_result.rc == 0
+
+- name: Set permissions on compiled classes
+  file:
+    path: "{{ compile_output_dir }}"
+    state: directory
+    mode: '0755'
+    recurse: true
+    owner: "{{ deployment_user }}"
+  delegate_to: "{{ groups['build_servers'][0] }}"
+
+- name: Display compilation results
+  debug:
+    msg: "Compilation completed successfully for {{ app_name }}"
+  when: compile_result.rc == 0

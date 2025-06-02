@@ -1,0 +1,4 @@
+skip_list:
+  - fqcn[action-core]
+  - no-changed-when
+  - ignore-errors
