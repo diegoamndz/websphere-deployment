@@ -1,129 +1,139 @@
 # WebSphere Deployment Automation
 
-Ansible automation for WebSphere application deployment with Java compilation, backup management, and rollback capabilities.
+Automated deployment pipeline for WebSphere applications using Ansible. This project demonstrates how Ansible can orchestrate complex Java application deployments, even though it's not natively designed for it.
 
-## Features
+## Overview
 
-- **Java Compilation**: Automatic compilation of source code with proper encoding
-- **WAR Creation**: Package applications into deployable WAR files
-- **Backup Management**: Automatic backup creation with timestamp
-- **WebSphere Integration**: Native wsadmin commands for deployment
-- **Rollback Support**: Quick rollback to previous versions
-- **Error Handling**: Comprehensive error checking and validation
+This was part of a larger CI/CD pipeline integrating **Ansible + Jenkins + Bitbucket + Jira**. My focus was the Ansible automation layer and its integration with the pipeline tools.
 
-**Key Components:**
-- `playbooks/deploy.yml` - Main deployment playbook
-- `playbooks/rollback.yml` - Rollback playbook  
-- `roles/java-compiler/` - Java compilation tasks
-- `roles/websphere-deploy/` - WebSphere deployment tasks
-- `roles/backup-manager/` - Backup and rollback tasks
-- `inventory/hosts` - Server inventory
-- `inventory/group_vars/all.yml` - Global variables
-- `vars/deployment.yml` - Deployment configuration
+**What it does:**
+- Compiles Java source code with proper encoding
+- Packages applications into WAR files
+- Creates timestamped backups before deployment
+- Deploys to WebSphere using native wsadmin commands
+- Provides quick rollback capabilities
 
-## Prerequisites
+**The Flow:**
+```
+Bitbucket Push → Jenkins Trigger → Ansible Playbook → WebSphere Deployment
+                                          ↓
+                                    Jira Update
+```
 
-- Ansible 2.9+
-- Java Development Kit on build servers
-- WebSphere Application Server with wsadmin access
-- SSH access to target servers
+## Project Structure
+```
+├── playbooks/
+│   ├── deploy.yml      # Main deployment orchestration
+│   └── rollback.yml    # Rollback to previous version
+├── roles/
+│   ├── java-compiler/  # Handles source compilation
+│   ├── websphere-deploy/  # WebSphere integration via wsadmin
+│   └── backup-manager/ # Backup creation and restoration
+├── inventory/
+│   ├── hosts           # Server definitions
+│   └── group_vars/     # Environment variables
+└── vars/
+    └── deployment.yml  # Deployment-specific config
+```
 
 ## Quick Start
 
-1. **Clone the repository**
-```bash
-git clone https://github.com/yourusername/websphere-deployment.git
-cd websphere-deployment
+**1. Configure your environment**
 
-- Configure your environment
-# Edit inventory
-vi inventory/hosts
-vi inventory/group_vars/all.yml
-
-- Deploy application
-ansible-playbook playbooks/deploy.yml
-ansible-playbook playbooks/rollback.yml
-
-- Configuration
-- Required Variables
-- Update these in inventory/group_vars/all.yml:
-# Application
-app_name: your_application_name
-context_root: /your_app
-
-# WebSphere
-was_username: your_was_admin
-was_password: your_secure_password
-was_cell: your_cell_name
-was_node: your_node_name
-
-# Paths
-source_base_dir: /path/to/source
-backup_dir: /path/to/backups
-
-- Server Inventory
-- Update inventory/hosts:
+Edit `inventory/hosts`:
+```ini
 [websphere_servers]
-your_server ansible_host=192.168.1.100
+prod-was ansible_host=10.0.1.50
 
 [build_servers]
-build_server ansible_host=192.168.1.101
+build-01 ansible_host=10.0.1.100
+```
 
-- Usage Examples
-- Standard Deployment
+Edit `inventory/group_vars/all.yml`:
+```yaml
+app_name: myapp
+context_root: /myapp
+was_username: wasadmin
+was_cell: Cell01
+was_node: Node01
+source_base_dir: /opt/source
+backup_dir: /opt/backups
+```
 
+**2. Deploy**
+```bash
+# Full deployment
 ansible-playbook playbooks/deploy.yml
-ansible-playbook playbooks/deploy.yml --tags "compile,deploy"
+
+# Specific environment
 ansible-playbook playbooks/deploy.yml -l production
+
+# Rollback if needed
 ansible-playbook playbooks/rollback.yml
-ansible-playbook playbooks/rollback.yml -e "confirm_rollback=false"
+```
 
-Security
+## How It Works
 
-Use Ansible Vault for sensitive variables
-Store passwords in encrypted vault files
-Implement proper SSH key management
-Follow principle of least privilege
+**Compilation Phase** (java-compiler role)
+- Pulls source from specified directory
+- Compiles with proper Java encoding
+- Handles classpath dependencies
 
-# Create encrypted variables
+**Packaging** (java-compiler role)
+- Creates WAR structure
+- Packages compiled classes
+- Validates archive integrity
+
+**Backup** (backup-manager role)
+- Creates timestamped backup of current deployment
+- Stores in backup directory
+- Keeps configurable retention
+
+**Deployment** (websphere-deploy role)
+- Connects to WebSphere via wsadmin
+- Executes deployment commands
+- Validates deployment status
+
+**Rollback** (backup-manager + websphere-deploy)
+- Retrieves latest backup
+- Redeploys previous version
+- Confirms application startup
+
+## CI/CD Integration
+
+This Ansible layer was designed to integrate with:
+
+- **Jenkins**: Called as a build step in Jenkinsfile
+- **Bitbucket**: Triggered on merge to specific branches
+- **Jira**: Updated deployment status via Jenkins (not directly from Ansible)
+
+The production version included more sophisticated error handling and reporting back to the pipeline.
+
+## Requirements
+
+- Ansible 2.9+
+- Java JDK on build servers
+- WebSphere Application Server with wsadmin access
+- SSH access to target servers
+
+## Security Note
+
+Use Ansible Vault for credentials:
+```bash
 ansible-vault create inventory/group_vars/vault.yml
-
-# Edit encrypted file
-ansible-vault edit inventory/group_vars/vault.yml
-
-# Run with vault password
 ansible-playbook playbooks/deploy.yml --ask-vault-pass
+```
 
-#  Customization
-This framework can be customized for your environment:
+## Context
 
-Java Packages: Update java_packages in roles/java-compiler/defaults/main.yml
-Paths: Modify paths in inventory/group_vars/all.yml
-WebSphere Settings: Adjust WebSphere configuration variables
-Health Checks: Add custom application health validation
-Notifications: Implement deployment notifications
+This is a simplified version of what I implemented professionally. The production system had additional features like:
+- Multi-environment deployments (dev/qa/prod)
+- Notification integrations
+- Advanced health checks
+- Deployment approval workflows
 
-#  Troubleshooting
-Common Issues
-Compilation Errors:
+The goal was to show how Ansible can handle complex Java deployments despite not being its primary use case.
 
-Check Java version and classpath
-Verify source code encoding
-Ensure proper file permissions
+---
 
-# WebSphere Connection Issues:
-
-Verify wsadmin path and credentials
-Check WebSphere server status
-Validate network connectivity
-
-# Deployment Failures:
-
-Check application logs
-Verify WAR file integrity
-Review WebSphere deployment logs
-
-# Debug Mode
-ansible-playbook playbooks/deploy.yml -vvv
-
-
+**Note**: This repo contains a reference implementation. The actual production code remained with the client.
