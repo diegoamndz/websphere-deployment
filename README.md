@@ -133,7 +133,3 @@ This is a simplified version of what I implemented professionally. The productio
 - Deployment approval workflows
 
 The goal was to show how Ansible can handle complex Java deployments despite not being its primary use case.
-
----
-
-**Note**: This repo contains a reference implementation. The actual production code remained with the client.
